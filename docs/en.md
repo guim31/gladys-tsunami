@@ -1,61 +1,140 @@
-# Demo Devices Template
+# Tsunami Alerts (NOAA)
 
-This is the user documentation of the integration. Gladys re-hosts this file
-and shows a permanent **Documentation** link to it in the Configuration screen
-(in the user's language, with English as the fallback) — it is when
-configuring that the user needs it most. Keep the short onboarding hints in
-the `section` blocks of the manifest `config_schema`; put the long
-step-by-step (screenshots, troubleshooting…) here.
+The official tsunami messages of NOAA's two tsunami warning centers, for the
+coast of your home, in Gladys: the level in effect (information statement,
+advisory, watch, warning), the earthquake behind it, and the estimated arrival
+time of the first wave when the bulletin gives one.
+
+> **This is not an official alert service.** It reads public bulletins once a
+> minute and can be late, wrong or silent (network, tsunami.gov, Gladys). It
+> does not replace tsunami sirens, Wireless Emergency Alerts (WEA) on your
+> phone, NOAA Weather Radio or the instructions of your local authorities. If
+> you feel a strong earthquake near the coast, move to high ground at once:
+> do not wait for any message. Not affiliated with NOAA.
 
 ## What you get
 
-Six demo devices show up after installation: a weather station (real data
-from Open-Meteo), a switch, a dimmable light, a smart plug with power
-metering, a motion sensor and a camera.
+- One device, **Tsunami alert**, for the followed region:
+  - **Tsunami alert level** (risk level): 0 no threat, 1 advisory, 2 watch or
+    international threat message, 3 warning;
+  - **Message in effect**: the kind of the latest message, or "No message in
+    effect";
+  - **Earthquake magnitude** and **Earthquake** (place and origin time);
+  - **Estimated arrival**: the first wave at the forecast point nearest to your
+    home (300 km at most), when the bulletin lists arrival times.
+- A scene trigger for every new bulletin of your region, a scene action that
+  reads the message in effect as one sentence, and a dashboard widget.
+
+## Requirements
+
+- Gladys Assistant 5.1 or later.
+- Internet access from Gladys to `www.tsunami.gov` (HTTPS). No account, no key.
+- The location of your house set in Gladys, or coordinates in the
+  configuration, or a region chosen by hand.
 
 ## Configuration
 
-1. Open the **Configuration** tab of the integration.
-2. Set the **latitude** and **longitude** the demo weather station should
-   observe (they default to Paris), and pick your temperature unit.
-   The **refresh interval** sets how often the weather station and the
-   plug's power are read: every 5 minutes by default, every minute at most.
-3. Save: the devices appear in the **Discovery** tab, ready to be added.
+1. Install the integration (Integrations → Install from GitHub,
+   `https://github.com/guim31/gladys-tsunami`).
+2. Open its configuration, check the settings below and save.
+3. In the **Discover** tab, create the **Tsunami alert** device.
 
-The **Prefer the local connection** toggle drives the demo plug: it reports
-the channel it actually uses as a badge (local or cloud), with an orange dot
-when it runs degraded (local refused, cloud fallback).
+### Settings
 
-## Actions
+- **Followed region**: _Automatic_ deduces it from your home. Choose it by hand
+  when your coast is near a border between two regions, or outside them.
+  - Alaska, British Columbia and the US West Coast (NTWC);
+  - US East and Gulf coasts, eastern Canada (NTWC);
+  - Hawaii; Guam and the Northern Mariana Islands; American Samoa; Puerto
+    Rico and the Virgin Islands (PTWC);
+  - Caribbean and Pacific, international messages (PTWC): the threat messages
+    the PTWC writes for the national authorities of every country of the basin
+    (French West Indies, French Polynesia, New Caledonia, Japan, Chile…).
+- **Home latitude / longitude**: leave both empty to use your house in Gladys.
+  A decimal comma is accepted.
+- **Refresh interval**: 1, 2 or 5 minutes.
+- **Language of the texts**: names of the device and features (at their
+  creation) and texts sent to the scenes.
 
-- **Test the weather provider** — performs a live request to Open-Meteo and
-  shows the current temperature and humidity under the button.
-- **Identify a device** — pick one of your devices in the list and it will
-  signal itself (the demo light "blinks" in the logs).
+## Levels and messages
 
-## Scenes
+| Message (NOAA)                 | Level | Meaning                                               |
+| ------------------------------ | ----- | ----------------------------------------------------- |
+| No message, information        | 0     | No threat for your region, or nothing in effect       |
+| Advisory                       | 1     | Strong currents and waves: stay out of the water      |
+| Watch                          | 2     | A tsunami is possible: be ready to act                |
+| Threat message (international) | 2     | Hazardous waves forecast for some coasts of the basin |
+| Warning                        | 3     | A dangerous tsunami is possible or expected: evacuate |
+| Cancellation or final message  | 0     | The alert is over                                     |
 
-The integration adds its own cards to the scene editor (Gladys 5.1 or
-later), under the **Integrations** category:
+An advisory, a watch, a warning or a threat message stays in effect until the
+next bulletin of the region (update, cancellation), or 12 hours without any
+bulletin. An information statement or a cancellation is shown until its
+expiry (one hour), then "No message in effect".
 
-- **Motion detected** (trigger) — starts the scene when a demo motion sensor
-  sees something move. Optionally pick the sensor and what moved (person,
-  animal); left empty, any detection matches. The following actions can
-  read what moved with `{{triggerEvent.data.target}}`.
-- **Identify a device** (action) — makes the chosen device signal itself.
-  It returns whether the device could signal itself, so the following
-  actions can depend on it.
+## Dashboard widget
 
-## Dashboard
+**Tsunami (NOAA)**: the region, the message in effect coloured by level (green
+nothing, blue information, orange advisory, watch or threat, red warning), the
+earthquake and the estimated arrival, a button to the bulletin, and the time of
+the last reading. Settings: show the earthquake, show the link.
 
-Add the **Demo status** widget to a dashboard: it shows the live
-temperature of the weather station and the power of the office plug, the
-connection the plug currently uses (orange when degraded) and the observed
-location. Its **Identify the light** button makes the demo light signal
-itself.
+## Scene trigger
+
+**Tsunami: new NOAA message**, filtered by kind of message (information,
+advisory, watch, warning, threat, cancellation) and by region. Variables: kind
+and region in words, level, magnitude, earthquake location, estimated arrival,
+the message in one sentence, and the link to the bulletin.
+
+The bulletins already published when you install the integration, or when the
+region changes, fire nothing. For "the level goes up" or "the alert is over",
+you can also use the **Tsunami alert level** feature in a device condition.
+
+## Scene action
+
+**Tsunami: read the message in effect**: outputs `text` (one sentence, to send
+by message or read aloud), `level` (0 to 3) and `kind` (`none`, `information`,
+`advisory`, `watch`, `warning`, `threat`, `cancellation`).
+
+## Scene examples
+
+- Trigger _Tsunami: new NOAA message_, kinds _Watch_ and _Warning_: send the
+  `summary` variable by Telegram and turn every light on.
+- Trigger _Tsunami: new NOAA message_, kind _Cancellation_: send "Tsunami alert
+  over".
+- Every day at 8:00, if the level is 1 or more: read the scene action text
+  aloud.
+
+## Data sources, terms and quotas
+
+- `https://www.tsunami.gov/events/js/previous.js` (the 40 latest bulletins of
+  both centers, one per product) and the Atom feeds `PAAQAtom.xml` (NTWC) and
+  `PHEBAtom.xml` (PTWC), read with `If-Modified-Since`: the site answers
+  `304 Not Modified` while nothing is issued.
+- For each new bulletin of your region, its CAP document and its text
+  bulletin (two small files).
+- NOAA data are in the public domain; no quota is published. The integration
+  sends a User-Agent naming itself, as NOAA asks.
 
 ## Troubleshooting
 
-The integration logs everything it does: check the integration logs from the
-Gladys UI (or `docker logs` on the host) with `LOG_LEVEL=debug` for the full
-detail.
+- **"No region"**: set the location of your house in Gladys (Settings →
+  Houses), or choose the region by hand.
+- **"far from the coasts NOAA covers"**: your home is outside every region;
+  choose the closest one by hand if you want its messages.
+- **The device stays at "No message in effect"**: that is the normal state;
+  use the **Show the message in effect** action to check the last reading.
+- More details with `LOG_LEVEL=debug` in the logs of the integration.
+
+## Limits
+
+- The region is a whole coast, not your exact zone: a warning for Alaska also
+  shows on a home in California. Read the bulletin before acting.
+- Arrival times come only from bulletins that list forecast points with
+  coordinates (the international threat messages). US warnings give their
+  arrival times in words: they are not read.
+- The text of the bulletins stays in English (NOAA's words).
+- Tested against the real bulletins of tsunami.gov (Panama earthquake of
+  9 October 2026, statements of November 2026). No real US warning was issued
+  while it was written: the warning, watch, advisory and cancellation cases
+  are derived from a real statement. Feedback welcome.

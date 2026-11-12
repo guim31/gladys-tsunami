@@ -31,16 +31,19 @@ pushing.
 ## Architecture
 
 ```
-index.js                          SDK wiring only: handlers registered before connect()
-src/devices/index.js              registry of the device blueprints + dispatch helpers
-src/devices/<type>.js             one device type per file (buildDevice, onPoll, onSetValue...)
-src/scenes.js                     scene action handlers (manifest `scene_actions`)
-src/widgets.js                    dashboard widget handlers (manifest `widgets`)
-src/config.js                     DEFAULT_CONFIG (mirrors the manifest defaults) + normalization
-src/weather.js                    example driver (Open-Meteo)
+index.js                          SDK wiring only (src/app.js), connect()
+src/app.js                        registers every SDK handler on the monitor
+src/monitor.js                    cycles, region, message in effect, states, scene trigger
+src/tsunami.js                    tsunami.gov client: lists, CAP, text bulletins, classify()
+src/device.js                     the one device and its features (names in 4 languages)
+src/messages.js                   texts sent from the container, 4 languages
+src/actions.js                    scene action `read_alert`, action `check_now`
+src/widgets.js                    dashboard widget `tsunami`
+src/config.js                     DEFAULT_CONFIG, regions (WMO headings, boxes), normalization
+src/store.js, src/geo.js          /data persistence, great-circle distance
 gladys-assistant-integration.json manifest: name, config_schema, actions, image...
-docs/en.md, docs/fr.md            user documentation, re-hosted by Gladys (mandatory)
-test/                             node --test, against the SDK's fake Gladys (integration-sdk/testing)
+docs/{en,fr,de,es}.md             user documentation, re-hosted by Gladys (mandatory)
+test/                             node --test, real tsunami.gov documents replayed in time
 .github/scripts/release.mjs       release helpers (manifest bump, changelog), tested in test/
 ```
 
@@ -251,3 +254,21 @@ long, et sur un « Sie »/« Ihr… » de politesse en allemand. Le store exige 
 - Docs `en`, `fr`, `de`, `es` avec les mêmes sections.
 - Chauffe, ouverture, sécurité : ne rien rendre pilotable « comme un thermostat » ou par un assistant
   vocal quand une erreur serait dangereuse (leçon d'OctoPrint).
+
+## tsunami.gov (relevé du 12/11/2026)
+
+- Les flux Atom `PAAQAtom.xml` / `PHEBAtom.xml` ne gardent que **le dernier bulletin** de chaque centre. Le PTWC
+  publie à la même seconde les bulletins d'un séisme pour Hawaï, Guam, Samoa et le Pacifique (un par en-tête WMO) :
+  la liste complète est `/events/js/previous.js` (40 derniers bulletins, JavaScript, champ `WMOID`). Elle a le même
+  `Last-Modified` que les flux et répond 304 à `If-Modified-Since`. Pas d'ETag.
+- L'en-tête WMO dit l'audience : `WEAK51/53` (Alaska, C.-B., côte ouest), `WEXX` (côtes est et golfe), `WEHW`
+  (Hawaï), `WEGM` (Guam), `WEZS` (Samoa américaines), `WECA41/42` (Porto Rico, îles Vierges), `WECA43` et `WEPA`
+  (messages internationaux, pour les autorités nationales).
+- Le type d'un bulletin n'est pas dans `previous.js` : il se lit dans le CAP (`<event>`, `<msgType>Cancel`) et le
+  titre en `...XXX...` du texte. Les messages de menace PTWC ont des `<event>` comme « Tsunami 1-3 meters » et pas
+  d'`<expires>` ; le dernier dit « PTWC FINAL TSUNAMI THREAT MESSAGE ». « Tsunami Warning Center » (nom des centres)
+  ne doit pas compter comme une alerte.
+- Les heures d'arrivée avec coordonnées n'existent que dans les messages de menace internationaux. Les bulletins
+  américains (`WEAK51`, `WEHW40`…) donnent des listes de zones UGC et des heures en clair : non lus.
+- Aucune vraie alerte américaine (Warning/Watch/Advisory) n'était dans les listes au moment de l'écriture : les
+  cas correspondants des tests sont dérivés d'un vrai `WEAK53` (`usBulletin` de `test/helpers/world.js`).

@@ -1,77 +1,92 @@
+// -----------------------------------------------------------------------------
+// The `tsunami` widget (checked by the SDK's validator of the core vocabulary
+// and budget), the scene action `read_alert` and the action `check_now`.
+// -----------------------------------------------------------------------------
+
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { validateWidgetContent } from '@gladysassistant/integration-sdk';
-import { createFakeGladys } from '@gladysassistant/integration-sdk/testing';
-import { buildDiscoveredDevices } from '../src/devices/index.js';
-import { simulateLanSession } from '../src/devices/plug.js';
-import { DEMO_STATUS_WIDGET, WIDGETS, refreshWidgets } from '../src/widgets.js';
-import { normalizeConfig } from '../src/config.js';
+import { CONFIG_ACTION, SCENE_ACTION } from '../src/actions.js';
+import { WIDGET_KEY } from '../src/monitor.js';
+import { PEDASI, createWorld } from './helpers/world.js';
 
-const gladys = createFakeGladys();
-const config = normalizeConfig();
-const demoStatus = WIDGETS[DEMO_STATUS_WIDGET];
+async function world(t, options = {}) {
+  const w = await createWorld(options);
+  t.after(() => w.app.stop());
+  return w;
+}
+const DURING = { time: Date.parse('2026-10-09T18:35:00Z') };
 
-// What the SDK passes to onWidgetGet, plus the config index.js adds.
-const getContent = (cfg = config) =>
-  demoStatus.get(gladys, { settings: {}, language: 'en', units: 'metric', config: cfg });
+async function widget(w, request) {
+  const { data } = await w.fake.widgetGet(WIDGET_KEY, request);
+  return data.content;
+}
 
-test('the demo_status content is rendered exactly as sent', async () => {
-  // [] = nothing the core would drop, truncate or trim to the content budget.
-  assert.deepEqual(validateWidgetContent(await getContent()), []);
-});
-
-test('the degraded plug connection content is valid too', async () => {
-  simulateLanSession(false);
-  try {
-    const content = await getContent();
+for (const language of ['en', 'fr', 'de', 'es']) {
+  test(`the widget is valid in ${language}, during a threat and without message`, async (t) => {
+    const during = await world(t, { config: PEDASI, clock: DURING });
+    const content = await widget(during, { language });
     assert.deepEqual(validateWidgetContent(content), []);
-    const status = content.components.find((component) => component.type === 'status');
-    assert.ok(
-      status.items.some((item) => item.color === 'warning'),
-      'degraded shows a warning',
-    );
-  } finally {
-    simulateLanSession(true);
-  }
-});
+    const status = content.components.find((c) => c.type === 'status');
+    assert.equal(status.items.length, 4);
+    assert.equal(status.items[0].color, 'warning');
+    const button = content.components.find((c) => c.type === 'button');
+    assert.match(button.link.url, /26282000\/2\/WEPA40\/WEPA40\.txt$/);
 
-test('the live tiles reference features the integration publishes', async () => {
-  const featureIds = new Set(
-    buildDiscoveredDevices(gladys, config).flatMap((device) =>
-      device.features.map((feature) => feature.external_id),
-    ),
-  );
-  const liveTiles = (await getContent()).components.filter((c) => c.device_feature);
-  assert.ok(liveTiles.length > 0, 'the template demonstrates a device-bound tile');
-  for (const tile of liveTiles) {
-    assert.ok(featureIds.has(tile.device_feature), `unknown feature ${tile.device_feature}`);
-  }
-});
+    const calm = await world(t);
+    const quiet = await widget(calm, { language });
+    assert.deepEqual(validateWidgetContent(quiet), []);
+    const row = quiet.components.find((c) => c.type === 'status').items;
+    assert.equal(row.length, 1);
+    assert.equal(row[0].color, 'success');
+  });
+}
 
-test('every button action of the content is handled and answers a short toast', async () => {
-  const buttons = (await getContent()).components.filter((c) => c.type === 'button' && c.action);
-  assert.ok(buttons.length > 0, 'the template demonstrates a widget action');
-  for (const { action } of buttons) {
-    const message = await demoStatus.action(gladys, {
-      actionKey: action.key,
-      params: action.params ?? {},
-      settings: {},
-      config,
-    });
-    assert.ok(message.en, 'the toast carries at least the mandatory `en` text');
-    assert.ok(message.en.length <= 200, 'toasts are capped at 200 characters');
-  }
-});
-
-test('an unknown widget action fails, so the user sees the error', async () => {
-  await assert.rejects(
-    demoStatus.action(gladys, { actionKey: 'unknown', params: {}, settings: {}, config }),
-    /Unknown widget action/,
+test('the settings hide the earthquake and the link', async (t) => {
+  const w = await world(t, { config: PEDASI, clock: DURING });
+  const content = await widget(w, {
+    language: 'fr',
+    settings: { show_quake: false, show_link: false },
+  });
+  assert.deepEqual(validateWidgetContent(content), []);
+  assert.equal(content.components.find((c) => c.type === 'status').items.length, 1);
+  assert.equal(
+    content.components.some((c) => c.type === 'button'),
+    false,
   );
 });
 
-test('refreshWidgets nudges every widget', () => {
-  const fresh = createFakeGladys();
-  refreshWidgets(fresh);
-  assert.deepEqual(fresh.fake.widgetRefreshes, Object.keys(WIDGETS));
+test('without region, the widget says to choose one', async (t) => {
+  const w = await world(t, { houses: [] });
+  const content = await widget(w, { language: 'en' });
+  assert.deepEqual(validateWidgetContent(content), []);
+  assert.equal(content.components[0].text, 'No region followed');
+});
+
+test('read_alert answers one sentence, the level and the kind', async (t) => {
+  const w = await world(t, { config: { ...PEDASI, language: 'en' }, clock: DURING });
+  const { data } = await w.fake.sceneAction(SCENE_ACTION, {});
+  assert.equal(data.outputs.level, 2);
+  assert.equal(data.outputs.kind, 'threat');
+  assert.equal(
+    data.outputs.text,
+    'Tsunami threat message for Pacific (international): PANAMA, Oct 9, 07:56 AM, magnitude 7.6.' +
+      ' Estimated arrival at PUNTA MALA (PANAMA): Oct 9, 08:20 AM.',
+  );
+  const calm = await world(t, { config: { language: 'fr' } });
+  const quiet = await calm.fake.sceneAction(SCENE_ACTION, {});
+  assert.deepEqual(quiet.data.outputs, {
+    text: 'Aucun message tsunami en cours pour Hawaï.',
+    level: 0,
+    kind: 'none',
+  });
+});
+
+test('check_now answers in the four languages', async (t) => {
+  const w = await world(t);
+  const answer = await w.fake.action(CONFIG_ACTION, {});
+  const text = JSON.stringify(answer);
+  for (const words of ['No tsunami message', 'Aucun message', 'Keine aktuelle', 'Ningún mensaje']) {
+    assert.ok(text.includes(words), words);
+  }
 });
