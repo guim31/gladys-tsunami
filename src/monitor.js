@@ -85,7 +85,7 @@ export const DEFAULT_TIMINGS = {
 export const ARRIVAL_MAX_KM = 300;
 // Bulletins read (CAP + text) in one cycle at most: the region's are rare.
 const MAX_READS_PER_CYCLE = 6;
-// Cycles a bulletin is read again before being taken as it is, or given up.
+// Cycles a bulletin is read again before its text alone is taken (CAP down).
 const MAX_ATTEMPTS = 3;
 
 const parsers = { 'previous.js': parsePrevious, 'PAAQAtom.xml': parseAtom };
@@ -377,14 +377,9 @@ export class Monitor {
         }
         const message = await this.read(bulletin, region, center);
         if (!message) {
-          // Read again at the next cycle, MAX_ATTEMPTS times at most.
-          const attempts = (this.attempts.get(key) ?? 0) + 1;
-          this.attempts.set(key, attempts);
-          if (attempts >= MAX_ATTEMPTS) {
-            logger.warn(`Bulletin ${key} given up after ${attempts} attempts`);
-            seen[key] = bulletin.issuedAt;
-            this.attempts.delete(key);
-          }
+          // Read again at every cycle until it is 12 hours old (skipped above):
+          // an overloaded site during a real event must not drop a warning.
+          this.attempts.set(key, (this.attempts.get(key) ?? 0) + 1);
           continue;
         }
         this.attempts.delete(key);
@@ -396,6 +391,11 @@ export class Monitor {
     // Forgotten only once no list holds it any more (and old enough), so a
     // bulletin still listed never comes back as news.
     const listed = new Set(bulletins.map(keyOf));
+    for (const key of this.attempts.keys()) {
+      if (!listed.has(key)) {
+        this.attempts.delete(key);
+      }
+    }
     const now = this.now();
     for (const [key, issuedAt] of Object.entries(seen)) {
       if (!listed.has(key) && now - issuedAt > this.timings.forgetAfterMs) {
@@ -413,15 +413,12 @@ export class Monitor {
    */
   adopt(message) {
     const active = this.current();
-    if (
-      active &&
-      LEVEL_OF[active.kind] > LEVEL_OF[message.kind] &&
-      message.kind !== 'cancellation' &&
-      active.eventId !== message.eventId
-    ) {
+    // A message stored by an older version has no eventId: the same event.
+    const sameEvent = !active?.eventId || active.eventId === message.eventId;
+    if (active && LEVEL_OF[active.kind] > LEVEL_OF[message.kind] && !sameEvent) {
       return;
     }
-    if (active && active.eventId === message.eventId && message.issuedAt < active.issuedAt) {
+    if (active && sameEvent && message.issuedAt < active.issuedAt) {
       return;
     }
     // Same event, same second, two products: the more severe one stays.
@@ -440,7 +437,7 @@ export class Monitor {
    * null when nothing says what it is (both unreachable, no "Category:"), or
    * when the CAP document (the one that names the alert) failed and fewer than
    * MAX_ATTEMPTS were made: a text headline alone could read as a mere
-   * statement.
+   * statement. After that, the text alone is used.
    */
   async read(bulletin, region, center) {
     const attempt = (this.attempts.get(keyOf(bulletin)) ?? 0) + 1;

@@ -268,6 +268,11 @@ export function classify({ category, cap, headline }) {
       .join(' | ')
       .toUpperCase()
       .replace(/TSUNAMI WARNING CENTER/g, '');
+  const words = clean([category, ...(cap?.headlines ?? []), headline]);
+  // A final message ends the alert, whatever wave heights its events recall.
+  if (/FINAL\b[^|]*THREAT MESSAGE/.test(words)) {
+    return 'cancellation';
+  }
   // The events of an active CAP document name the alert for every area it
   // covers: a warning kept for some coasts wins over "canceled" for others.
   const events = clean(cap?.events ?? []);
@@ -275,8 +280,7 @@ export function classify({ category, cap, headline }) {
   if (level) {
     return level;
   }
-  const words = clean([category, ...(cap?.headlines ?? []), headline]);
-  if (/CANCEL/.test(words) || /FINAL\b[^|]*THREAT MESSAGE/.test(words)) {
+  if (/CANCEL/.test(words)) {
     return 'cancellation';
   }
   return alertIn(words) ?? 'information';

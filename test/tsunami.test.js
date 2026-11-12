@@ -189,3 +189,14 @@ test('a partial cancellation keeps the warning the CAP events still name', () =>
   );
   assert.equal(classify({ headline: 'THE TSUNAMI WARNING IS CANCELED' }), 'cancellation');
 });
+
+test('a final threat message ends the alert even if its events recall wave heights', () => {
+  const cap = parseCap(
+    fixture('PHEB-26282000-3-WEPA40.cap.xml').replace(
+      'PTWC TSUNAMI THREAT MESSAGE',
+      'PTWC FINAL TSUNAMI THREAT MESSAGE',
+    ),
+  );
+  assert.deepEqual(cap.events, ['Tsunami 1-3 meters']);
+  assert.equal(classify({ cap }), 'cancellation');
+});

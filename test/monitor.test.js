@@ -305,3 +305,42 @@ test('tsunami.gov down for hours: the warning is not taken as over', async (t) =
   await cycle(w, { minutes: 13 * 60 });
   assert.equal(value(w, 'level'), 3);
 });
+
+test('the end of another earthquake does not end a warning', async (t) => {
+  const w = await world(t, { config: CRESCENT_CITY });
+  await createAll(w);
+  w.api.addBulletin({ issuedAt: w.clock.now() + 1000, ...usBulletin('warning') });
+  await cycle(w);
+  w.api.addBulletin({
+    eventId: 'tsyn09',
+    issuedAt: w.clock.now() + 1000,
+    ...usBulletin('cancellation'),
+  });
+  await cycle(w);
+  assert.equal(value(w, 'level'), 3);
+  w.api.addBulletin({ number: 2, issuedAt: w.clock.now() + 1000, ...usBulletin('cancellation') });
+  await cycle(w);
+  assert.equal(value(w, 'level'), 0);
+});
+
+test('two products of one bulletin at the same second: the more severe stays', async (t) => {
+  const w = await world(t, { config: CRESCENT_CITY });
+  await createAll(w);
+  const issuedAt = w.clock.now() + 1000;
+  w.api.addBulletin({ issuedAt, ...usBulletin('warning') });
+  w.api.addBulletin({ issuedAt, wmo: 'WEAK53', ...usBulletin('advisory') });
+  await cycle(w);
+  assert.equal(value(w, 'level'), 3);
+});
+
+test('the CAP down for a long time: retried, then classified from the text', async (t) => {
+  const w = await world(t, { config: CRESCENT_CITY });
+  await createAll(w);
+  w.api.addBulletin({ issuedAt: w.clock.now() + 1000, text: usBulletin('warning').text });
+  for (let i = 0; i < 2; i += 1) {
+    await cycle(w);
+  }
+  assert.deepEqual(w.fake.sceneEvents, []);
+  await cycle(w);
+  assert.equal(value(w, 'level'), 3);
+});
