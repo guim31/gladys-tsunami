@@ -85,6 +85,8 @@ export const DEFAULT_TIMINGS = {
 export const ARRIVAL_MAX_KM = 300;
 // Bulletins read (CAP + text) in one cycle at most: the region's are rare.
 const MAX_READS_PER_CYCLE = 6;
+// Cycles a bulletin is read again before being taken as it is, or given up.
+const MAX_ATTEMPTS = 3;
 
 const parsers = { 'previous.js': parsePrevious, 'PAAQAtom.xml': parseAtom };
 const parserOf = (url) => parsers[url.split('/').pop()] ?? parseAtom;
@@ -111,6 +113,8 @@ export class Monitor {
     // Per list URL: its validators, and the bulletins of its last 200 answer.
     this.validators = new Map();
     this.lists = new Map();
+    // Per bulletin key: reads that failed so far.
+    this.attempts = new Map();
     this.region = null;
     this.lastSuccessAt = null;
     this.lastCycleAt = -Infinity;
@@ -302,7 +306,14 @@ export class Monitor {
       if (result.status === 'fulfilled') {
         answered += 1;
         if (result.value.status === 200) {
-          this.lists.set(url, parserOf(url)(result.value.text));
+          const parsed = parserOf(url)(result.value.text);
+          // A list with entries but none understood: the format has changed.
+          if (parsed.length === 0 && /<entry|'WMOID'/.test(result.value.text)) {
+            this.failed(`parse-${url}`, 'warn', `${url} is no longer understood`);
+          } else {
+            this.recovered(`parse-${url}`, `${url} is understood again`);
+          }
+          this.lists.set(url, parsed);
         }
       } else {
         logger.debug(`${result.reason.message}`);
@@ -353,23 +364,41 @@ export class Monitor {
       }
       logger.debug(`${relevant.length} bulletin(s) of ${region.key} taken as known`);
     } else {
-      const fresh = relevant.filter((b) => !(keyOf(b) in seen)).slice(0, MAX_READS_PER_CYCLE);
+      const unseen = relevant.filter((b) => !(keyOf(b) in seen));
+      // Newest first within the budget, read in issue order.
+      const fresh = unseen.slice(-MAX_READS_PER_CYCLE);
       for (const bulletin of fresh) {
-        const message = await this.read(bulletin, region, center);
-        if (!message) {
-          // Read again at the next cycle.
+        const key = keyOf(bulletin);
+        // Too old to be news (container stopped for days, a list reaching
+        // far back): known, without trigger.
+        if (this.now() - bulletin.issuedAt > this.timings.alertMaxAgeMs) {
+          seen[key] = bulletin.issuedAt;
           continue;
         }
-        seen[keyOf(bulletin)] = bulletin.issuedAt;
-        if (!this.data.current || message.issuedAt >= this.data.current.issuedAt) {
-          this.data.current = message;
+        const message = await this.read(bulletin, region, center);
+        if (!message) {
+          // Read again at the next cycle, MAX_ATTEMPTS times at most.
+          const attempts = (this.attempts.get(key) ?? 0) + 1;
+          this.attempts.set(key, attempts);
+          if (attempts >= MAX_ATTEMPTS) {
+            logger.warn(`Bulletin ${key} given up after ${attempts} attempts`);
+            seen[key] = bulletin.issuedAt;
+            this.attempts.delete(key);
+          }
+          continue;
         }
+        this.attempts.delete(key);
+        seen[key] = bulletin.issuedAt;
+        this.adopt(message);
         await this.fire(message);
       }
     }
+    // Forgotten only once no list holds it any more (and old enough), so a
+    // bulletin still listed never comes back as news.
+    const listed = new Set(bulletins.map(keyOf));
     const now = this.now();
     for (const [key, issuedAt] of Object.entries(seen)) {
-      if (now - issuedAt > this.timings.forgetAfterMs) {
+      if (!listed.has(key) && now - issuedAt > this.timings.forgetAfterMs) {
         delete seen[key];
       }
     }
@@ -377,10 +406,44 @@ export class Monitor {
   }
 
   /**
+   * A new message of the region becomes the message in effect, unless it would
+   * lower an alert still in effect for another earthquake: an unrelated
+   * information statement issued during a warning does not end it. Only a
+   * bulletin of the same event (update, cancellation) or a stronger one does.
+   */
+  adopt(message) {
+    const active = this.current();
+    if (
+      active &&
+      LEVEL_OF[active.kind] > LEVEL_OF[message.kind] &&
+      message.kind !== 'cancellation' &&
+      active.eventId !== message.eventId
+    ) {
+      return;
+    }
+    if (active && active.eventId === message.eventId && message.issuedAt < active.issuedAt) {
+      return;
+    }
+    // Same event, same second, two products: the more severe one stays.
+    if (
+      active &&
+      message.issuedAt === active.issuedAt &&
+      LEVEL_OF[message.kind] < LEVEL_OF[active.kind]
+    ) {
+      return;
+    }
+    this.data.current = message;
+  }
+
+  /**
    * One bulletin, with its CAP document and its text: the message record, or
-   * null when nothing says what it is (both unreachable, no "Category:").
+   * null when nothing says what it is (both unreachable, no "Category:"), or
+   * when the CAP document (the one that names the alert) failed and fewer than
+   * MAX_ATTEMPTS were made: a text headline alone could read as a mere
+   * statement.
    */
   async read(bulletin, region, center) {
+    const attempt = (this.attempts.get(keyOf(bulletin)) ?? 0) + 1;
     const [capResult, textResult] = await Promise.allSettled([
       get(this.fetch, capUrl(bulletin)),
       get(this.fetch, textUrl(bulletin)),
@@ -390,7 +453,8 @@ export class Monitor {
       textResult.status === 'fulfilled'
         ? parseBulletinText(textResult.value.text, bulletin.issuedAt)
         : null;
-    if (!cap && !text?.headline && !bulletin.category) {
+    const capFailed = capResult.status === 'rejected';
+    if ((!cap && !text?.headline && !bulletin.category) || (capFailed && attempt < MAX_ATTEMPTS)) {
       const reason = capResult.reason ?? textResult.reason;
       this.failed(
         'bulletin',
@@ -403,6 +467,7 @@ export class Monitor {
     const kind = classify({ category: bulletin.category, cap, headline: text?.headline });
     return {
       key: keyOf(bulletin),
+      eventId: bulletin.eventId,
       region: region.key,
       kind,
       center: bulletin.center,
@@ -426,7 +491,9 @@ export class Monitor {
     }
     const now = this.now();
     if (LEVEL_OF[message.kind] > 0) {
-      return now - message.issuedAt <= this.timings.alertMaxAgeMs ? message : null;
+      // While tsunami.gov cannot be read, an alert is not taken as over.
+      const fresh = now - message.issuedAt <= this.timings.alertMaxAgeMs;
+      return fresh || this.failing.has('site') ? message : null;
     }
     const until = message.expiresAt ?? message.issuedAt + this.timings.statementMs;
     return now <= until ? message : null;
@@ -468,7 +535,8 @@ export class Monitor {
   // --- States ------------------------------------------------------------------
 
   statesOf() {
-    if (this.lastSuccessAt === null) {
+    // Without region, "no message in effect" would be a false all-clear.
+    if (this.lastSuccessAt === null || !this.region) {
       return [];
     }
     const { language } = this.config;

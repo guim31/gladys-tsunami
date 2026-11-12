@@ -262,14 +262,27 @@ export function classify({ category, cap, headline }) {
   if (cap?.msgType === 'Cancel') {
     return 'cancellation';
   }
-  const words = [category, ...(cap?.events ?? []), ...(cap?.headlines ?? []), headline]
-    .filter(Boolean)
-    .join(' | ')
-    .toUpperCase()
-    .replace(/TSUNAMI WARNING CENTER/g, '');
+  const clean = (texts) =>
+    texts
+      .filter(Boolean)
+      .join(' | ')
+      .toUpperCase()
+      .replace(/TSUNAMI WARNING CENTER/g, '');
+  // The events of an active CAP document name the alert for every area it
+  // covers: a warning kept for some coasts wins over "canceled" for others.
+  const events = clean(cap?.events ?? []);
+  const level = alertIn(events);
+  if (level) {
+    return level;
+  }
+  const words = clean([category, ...(cap?.headlines ?? []), headline]);
   if (/CANCEL/.test(words) || /FINAL\b[^|]*THREAT MESSAGE/.test(words)) {
     return 'cancellation';
   }
+  return alertIn(words) ?? 'information';
+}
+
+function alertIn(words) {
   if (/WARNING/.test(words)) {
     return 'warning';
   }
@@ -282,5 +295,5 @@ export function classify({ category, cap, headline }) {
   if (/THREAT|\bMETERS\b/.test(words) && !/NO TSUNAMI THREAT/.test(words)) {
     return 'threat';
   }
-  return 'information';
+  return null;
 }

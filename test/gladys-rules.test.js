@@ -1,7 +1,7 @@
 // -----------------------------------------------------------------------------
 // Conformity with the Gladys core, on the device discovered from realistic
 // inputs (the recorded bulletins: a threat message in effect, nothing in
-// effect, no region), in every feature-name language.
+// effect in Hawaii and in Martinique), in every feature-name language.
 //
 // The table (test/fixtures/gladys-feature-table.json) is extracted from the
 // core code: a category/type couple missing there shows as "undefined" or
@@ -23,7 +23,7 @@ const table = JSON.parse(
 const CONFIGS = [
   { clock: BEFORE_PANAMA, at: Date.parse('2026-10-09T18:35:00Z'), config: { ...PEDASI } },
   { config: { region: 'hawaii' } },
-  { config: { latitude: '48.85', longitude: '2.35' } },
+  { config: { latitude: '14,6037', longitude: '-61,0588' } },
 ];
 
 for (const language of LANGUAGES) {

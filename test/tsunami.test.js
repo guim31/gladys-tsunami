@@ -179,3 +179,13 @@ test('a bulletin path, with or without its product', () => {
   );
   assert.equal(parsePath('/events/xml/PAAQAtom.xml'), null);
 });
+
+test('a partial cancellation keeps the warning the CAP events still name', () => {
+  const { cap } = usBulletin('warning');
+  const partial = parseCap(cap.replace('<msgType>Alert</msgType>', '<msgType>Update</msgType>'));
+  assert.equal(
+    classify({ cap: partial, headline: 'THE TSUNAMI WARNING IS CANCELED FOR WASHINGTON' }),
+    'warning',
+  );
+  assert.equal(classify({ headline: 'THE TSUNAMI WARNING IS CANCELED' }), 'cancellation');
+});

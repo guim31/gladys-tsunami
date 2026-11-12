@@ -247,3 +247,61 @@ test('the quake time is the origin time of the CAP document', async (t) => {
   const w = await world(t, { config: PEDASI, clock: { time: at('2026-10-09T18:35:00Z') } });
   assert.equal(w.monitor.current().originAt, PANAMA_QUAKE);
 });
+
+test('without region, no state: "no message" would be a false all-clear', async (t) => {
+  const w = await world(t, { houses: [{ id: 'h', latitude: 48.85, longitude: 2.35 }] });
+  await createAll(w);
+  assert.deepEqual(w.fake.states, []);
+});
+
+test('a bulletin older than 12 hours never fires, even if it was never seen', async (t) => {
+  const w = await world(t, { config: CRESCENT_CITY });
+  await createAll(w);
+  w.api.addBulletin({ issuedAt: w.clock.now() - 13 * 3600000, ...usBulletin('warning') });
+  await cycle(w);
+  assert.deepEqual(w.fake.sceneEvents, []);
+  assert.equal(value(w, 'level'), 0);
+});
+
+test('an information statement for another earthquake does not end a warning', async (t) => {
+  const w = await world(t, { config: CRESCENT_CITY });
+  await createAll(w);
+  w.api.addBulletin({ issuedAt: w.clock.now() + 1000, ...usBulletin('warning') });
+  await cycle(w);
+  w.api.addBulletin({
+    eventId: 'tsyn09',
+    wmo: 'WEAK53',
+    issuedAt: w.clock.now() + 1000,
+    cap: usBulletin('warning')
+      .cap.replace('<event>Tsunami Warning</event>', '<event>Tsunami Information</event>')
+      .replace(
+        /<headline>[^<]*<\/headline>/,
+        '<headline>This is a Tsunami Information Statement.</headline>',
+      ),
+  });
+  await cycle(w);
+  assert.equal(w.fake.sceneEvents.at(-1).data.kind, 'information');
+  assert.equal(value(w, 'level'), 3);
+});
+
+test('the CAP document unreachable: read again before taking the text alone', async (t) => {
+  const w = await world(t, { config: CRESCENT_CITY });
+  await createAll(w);
+  const { cap, text } = usBulletin('warning');
+  w.api.addBulletin({ issuedAt: w.clock.now() + 1000, text });
+  await cycle(w);
+  assert.deepEqual(w.fake.sceneEvents, []);
+  w.api.documents['tsyn01/1/WEAK51/PAAQCAP.xml'] = cap;
+  await cycle(w);
+  assert.equal(value(w, 'level'), 3);
+});
+
+test('tsunami.gov down for hours: the warning is not taken as over', async (t) => {
+  const w = await world(t, { config: CRESCENT_CITY });
+  await createAll(w);
+  w.api.addBulletin({ issuedAt: w.clock.now() + 1000, ...usBulletin('warning') });
+  await cycle(w);
+  w.api.down = 503;
+  await cycle(w, { minutes: 13 * 60 });
+  assert.equal(value(w, 'level'), 3);
+});
