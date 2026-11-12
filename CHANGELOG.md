@@ -10,6 +10,8 @@ the notes of the version's GitHub Release.
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-11-12
+
 ### Added
 
 - One device, **Tsunami alert**, for the followed region: alert level (0 no
@@ -27,3 +29,6 @@ the notes of the version's GitHub Release.
 - Dashboard widget **Tsunami (NOAA)**.
 - Readings every 1, 2 or 5 minutes with `If-Modified-Since`, texts in English,
   French, German and Spanish.
+
+[Unreleased]: https://github.com/guim31/gladys-tsunami/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/guim31/gladys-tsunami/releases/tag/v1.0.0
