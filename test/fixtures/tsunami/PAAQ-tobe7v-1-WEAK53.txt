@@ -1,0 +1,45 @@
+
+WEAK53 PAAQ 110151
+TIBAK1
+
+Tsunami Information Statement Number 1
+NWS National Tsunami Warning Center Palmer AK
+551 PM PST Tue Nov 10 2026
+
+...THIS IS A TSUNAMI INFORMATION STATEMENT...
+
+EVALUATION
+----------
+ * There is NO tsunami danger from this earthquake.
+
+
+PRELIMINARY EARTHQUAKE PARAMETERS
+---------------------------------
+
+ * The following parameters are based on a rapid preliminary
+   assessment of the earthquake and changes may occur.
+
+ * Magnitude      4.7
+ * Origin Time    1646 AKST Nov 10 2026
+                  1746  PST Nov 10 2026
+                  0146  UTC Nov 11 2026
+ * Coordinates    49.3 North 127.7 West
+ * Depth          7 miles
+ * Location       65 miles SW of Port Alice, British Columbia
+                  270 miles NW of Seattle, Washington
+
+
+ADDITIONAL INFORMATION AND NEXT UPDATE
+--------------------------------------
+ * Further information will be issued by the United States
+   Geological Survey (earthquake.usgs.gov) or the appropriate
+   regional seismic network.
+
+ * This will be the only U.S. National Tsunami Warning Center
+   message issued for this event unless additional information
+   becomes available.
+
+$$
+
+
+

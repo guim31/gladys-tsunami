@@ -1,177 +1,683 @@
 {
   "manifest_version": 1,
   "type": "device",
-  "name": "Demo Devices Template",
+  "name": "Tsunami Alerts (NOAA)",
   "description": {
-    "en": "Starter template showing sensors, a switch, a dimmable light and a smart plug.",
-    "fr": "Template de démarrage : capteurs, interrupteur, lampe variable et prise connectée."
+    "en": "Official NOAA tsunami messages (NTWC, PTWC) for your coast: level, earthquake, arrival time.",
+    "fr": "Messages tsunami officiels de la NOAA (NTWC, PTWC) pour votre côte : niveau, séisme, arrivée.",
+    "de": "Offizielle Tsunami-Meldungen der NOAA (NTWC, PTWC) für deine Küste: Stufe, Erdbeben, Ankunft.",
+    "es": "Mensajes oficiales de tsunami de la NOAA (NTWC, PTWC) para su costa: nivel, sismo, llegada."
   },
   "version": "1.0.0",
-  "docker_image": "ghcr.io/gladysassistant/integration-template-js:1.0.0",
+  "docker_image": "ghcr.io/guim31/gladys-tsunami:1.0.0",
   "gladys_version": ">=5.1.0",
-  "cover_image": "https://raw.githubusercontent.com/GladysAssistant/integration-template-js/master/cover.png",
-  "categories": ["lighting", "security", "environment"],
-  "transports": ["local", "cloud"],
+  "cover_image": "https://raw.githubusercontent.com/guim31/gladys-tsunami/main/cover.png",
+  "categories": ["environment", "security"],
+  "transports": ["cloud"],
+  "location": true,
   "config_schema": [
     {
       "key": "intro",
       "type": "section",
-      "label": { "en": "Getting started", "fr": "Pour commencer" },
+      "label": {
+        "en": "Your coast",
+        "fr": "Votre côte",
+        "de": "Deine Küste",
+        "es": "Su costa"
+      },
       "description": {
-        "en": "The demo weather station reads real data from the free Open-Meteo API: pick the coordinates to observe. No account, no API key.",
-        "fr": "La station météo de démonstration lit de vraies données via l'API gratuite Open-Meteo : choisissez les coordonnées à observer. Pas de compte, pas de clé d'API."
+        "en": "Tsunami messages of NOAA's two warning centers, NTWC and PTWC. The region is deduced from your house (or coordinates), never sent. Save, then create the device in the Discover tab.",
+        "fr": "Messages tsunami des deux centres d'alerte de la NOAA, NTWC et PTWC. La région est déduite de votre maison (ou de coordonnées), jamais envoyée. Enregistrez, puis créez l'appareil dans l'onglet Découverte.",
+        "de": "Tsunami-Meldungen der beiden Warnzentren der NOAA, NTWC und PTWC. Die Region wird aus deinem Haus (oder Koordinaten) abgeleitet, nie gesendet. Speichere und lege dann das Gerät im Tab „Entdecken“ an.",
+        "es": "Mensajes de tsunami de los dos centros de alerta de la NOAA, NTWC y PTWC. La región se deduce de su casa (o de coordenadas), nunca se envía. Guarde y cree el dispositivo en la pestaña Descubrir."
       },
       "links": [
         {
-          "url": "https://open-meteo.com/en/docs",
-          "label": { "en": "Open-Meteo documentation", "fr": "Documentation Open-Meteo" }
+          "url": "https://github.com/guim31/gladys-tsunami/blob/main/docs/en.md",
+          "label": {
+            "en": "Setup guide",
+            "fr": "Guide d'installation",
+            "de": "Installationsanleitung",
+            "es": "Guía de instalación"
+          }
+        }
+      ]
+    },
+    {
+      "key": "region",
+      "type": "select",
+      "label": {
+        "en": "Followed region",
+        "fr": "Région suivie",
+        "de": "Verfolgte Region",
+        "es": "Región seguida"
+      },
+      "description": {
+        "en": "Automatic: from the home. Choose by hand if your coast is on a border, or far from the US.",
+        "fr": "Automatique : d'après la maison. Choisissez à la main si votre côte est en limite, ou loin des États-Unis.",
+        "de": "Automatisch: nach dem Zuhause. Wähle von Hand, wenn deine Küste an einer Grenze oder fern der USA liegt.",
+        "es": "Automática: según la casa. Elija a mano si su costa está en un límite o lejos de EE. UU."
+      },
+      "required": false,
+      "default": "auto",
+      "options": [
+        {
+          "value": "auto",
+          "label": {
+            "en": "Automatic (from the home)",
+            "fr": "Automatique (d'après la maison)",
+            "de": "Automatisch (nach dem Zuhause)",
+            "es": "Automática (según la casa)"
+          }
+        },
+        {
+          "value": "alaska_west_coast",
+          "label": {
+            "en": "Alaska, BC and US West Coast (NTWC)",
+            "fr": "Alaska, C.-B. et côte ouest des É.-U. (NTWC)",
+            "de": "Alaska, BC und US-Westküste (NTWC)",
+            "es": "Alaska, C. B. y costa oeste de EE. UU. (NTWC)"
+          }
+        },
+        {
+          "value": "east_gulf_coast",
+          "label": {
+            "en": "US East and Gulf coasts, eastern Canada (NTWC)",
+            "fr": "Côtes est et du golfe des É.-U., est du Canada (NTWC)",
+            "de": "US-Ost- und Golfküste, Ostkanada (NTWC)",
+            "es": "Costas este y del golfo de EE. UU., este de Canadá (NTWC)"
+          }
+        },
+        {
+          "value": "hawaii",
+          "label": {
+            "en": "Hawaii (PTWC)",
+            "fr": "Hawaï (PTWC)",
+            "de": "Hawaii (PTWC)",
+            "es": "Hawái (PTWC)"
+          }
+        },
+        {
+          "value": "guam_cnmi",
+          "label": {
+            "en": "Guam and Northern Mariana Islands (PTWC)",
+            "fr": "Guam et îles Mariannes du Nord (PTWC)",
+            "de": "Guam und Nördliche Marianen (PTWC)",
+            "es": "Guam e Islas Marianas del Norte (PTWC)"
+          }
+        },
+        {
+          "value": "american_samoa",
+          "label": {
+            "en": "American Samoa (PTWC)",
+            "fr": "Samoa américaines (PTWC)",
+            "de": "Amerikanisch-Samoa (PTWC)",
+            "es": "Samoa Americana (PTWC)"
+          }
+        },
+        {
+          "value": "puerto_rico_vi",
+          "label": {
+            "en": "Puerto Rico and Virgin Islands (PTWC)",
+            "fr": "Porto Rico et îles Vierges (PTWC)",
+            "de": "Puerto Rico und Jungferninseln (PTWC)",
+            "es": "Puerto Rico e Islas Vírgenes (PTWC)"
+          }
+        },
+        {
+          "value": "caribbean",
+          "label": {
+            "en": "Caribbean, international messages (PTWC)",
+            "fr": "Caraïbes, messages internationaux (PTWC)",
+            "de": "Karibik, internationale Meldungen (PTWC)",
+            "es": "Caribe, mensajes internacionales (PTWC)"
+          }
+        },
+        {
+          "value": "pacific",
+          "label": {
+            "en": "Pacific, international messages (PTWC)",
+            "fr": "Pacifique, messages internationaux (PTWC)",
+            "de": "Pazifik, internationale Meldungen (PTWC)",
+            "es": "Pacífico, mensajes internacionales (PTWC)"
+          }
         }
       ]
     },
     {
       "key": "latitude",
-      "type": "number",
-      "label": { "en": "Latitude", "fr": "Latitude" },
-      "description": {
-        "en": "Latitude used for the demo weather sensor.",
-        "fr": "Latitude utilisée par le capteur météo de démonstration."
+      "type": "string",
+      "label": {
+        "en": "Home latitude",
+        "fr": "Latitude de la maison",
+        "de": "Breitengrad des Zuhauses",
+        "es": "Latitud de la casa"
       },
-      "placeholder": { "en": "e.g. 48.8566", "fr": "ex. 48.8566" },
-      "required": true,
-      "default": 48.8566,
-      "min": -90,
-      "max": 90
+      "description": {
+        "en": "Leave both coordinates empty to use the location of your house in Gladys.",
+        "fr": "Laissez les deux coordonnées vides pour utiliser la position de votre maison dans Gladys.",
+        "de": "Lass beide Koordinaten leer, um den Standort deines Hauses in Gladys zu verwenden.",
+        "es": "Deje ambas coordenadas vacías para usar la ubicación de su casa en Gladys."
+      },
+      "placeholder": {
+        "en": "e.g. 19.7241",
+        "fr": "ex. 14,6037",
+        "de": "z. B. 19.7241",
+        "es": "p. ej. 18.4655"
+      },
+      "required": false,
+      "default": ""
     },
     {
       "key": "longitude",
-      "type": "number",
-      "label": { "en": "Longitude", "fr": "Longitude" },
-      "description": {
-        "en": "Longitude used for the demo weather sensor.",
-        "fr": "Longitude utilisée par le capteur météo de démonstration."
+      "type": "string",
+      "label": {
+        "en": "Home longitude",
+        "fr": "Longitude de la maison",
+        "de": "Längengrad des Zuhauses",
+        "es": "Longitud de la casa"
       },
-      "placeholder": { "en": "e.g. 2.3522", "fr": "ex. 2.3522" },
-      "required": true,
-      "default": 2.3522,
-      "min": -180,
-      "max": 180
+      "description": {
+        "en": "Decimal degrees, negative west of Greenwich.",
+        "fr": "Degrés décimaux, négatifs à l'ouest de Greenwich.",
+        "de": "Dezimalgrad, negativ westlich von Greenwich.",
+        "es": "Grados decimales, negativos al oeste de Greenwich."
+      },
+      "placeholder": {
+        "en": "e.g. -155.0868",
+        "fr": "ex. -61,0588",
+        "de": "z. B. -155.0868",
+        "es": "p. ej. -66.1057"
+      },
+      "required": false,
+      "default": ""
     },
     {
-      "key": "unit",
+      "key": "refresh_interval",
       "type": "select",
-      "label": { "en": "Temperature unit", "fr": "Unité de température" },
+      "label": {
+        "en": "Refresh interval",
+        "fr": "Fréquence de mise à jour",
+        "de": "Aktualisierungsintervall",
+        "es": "Intervalo de actualización"
+      },
+      "description": {
+        "en": "Unchanged lists answer 304 Not Modified: a reading every minute stays light.",
+        "fr": "Les listes inchangées répondent 304 Not Modified : une lecture par minute reste légère.",
+        "de": "Unveränderte Listen antworten 304 Not Modified: eine Abfrage pro Minute bleibt leicht.",
+        "es": "Las listas sin cambios responden 304 Not Modified: una lectura por minuto sigue siendo ligera."
+      },
       "required": false,
-      "default": "celsius",
+      "default": "1",
       "options": [
-        { "value": "celsius", "label": { "en": "Celsius", "fr": "Celsius" } },
-        { "value": "fahrenheit", "label": { "en": "Fahrenheit", "fr": "Fahrenheit" } }
+        {
+          "value": "1",
+          "label": {
+            "en": "1 minute",
+            "fr": "1 minute",
+            "de": "1 Minute",
+            "es": "1 minuto"
+          }
+        },
+        {
+          "value": "2",
+          "label": {
+            "en": "2 minutes",
+            "fr": "2 minutes",
+            "de": "2 Minuten",
+            "es": "2 minutos"
+          }
+        },
+        {
+          "value": "5",
+          "label": {
+            "en": "5 minutes",
+            "fr": "5 minutes",
+            "de": "5 Minuten",
+            "es": "5 minutos"
+          }
+        }
       ]
     },
     {
-      "key": "poll_frequency",
-      "type": "number",
-      "label": { "en": "Refresh interval (s)", "fr": "Intervalle de rafraîchissement (s)" },
+      "key": "language",
+      "type": "select",
+      "label": {
+        "en": "Language of the texts",
+        "fr": "Langue des textes",
+        "de": "Sprache der Texte",
+        "es": "Idioma de los textos"
+      },
       "description": {
-        "en": "How often sensors are polled, in seconds (one minute minimum).",
-        "fr": "Fréquence d'interrogation des capteurs, en secondes (une minute minimum)."
+        "en": "Names of the device and features (at their creation) and texts sent to the scenes.",
+        "fr": "Noms de l'appareil et des fonctionnalités (à leur création) et textes envoyés aux scènes.",
+        "de": "Namen des Geräts und der Funktionen (bei ihrer Erstellung) und Texte für die Szenen.",
+        "es": "Nombres del dispositivo y de las funciones (al crearlos) y textos enviados a las escenas."
       },
       "required": false,
-      "default": 300,
-      "min": 60,
-      "max": 3600
-    }
-  ],
-  "actions": [
-    {
-      "key": "test_weather",
-      "label": { "en": "Test the weather provider", "fr": "Tester le fournisseur météo" },
-      "timeout_seconds": 30
+      "default": "fr",
+      "options": [
+        {
+          "value": "en",
+          "label": {
+            "en": "English",
+            "fr": "Anglais",
+            "de": "Englisch",
+            "es": "Inglés"
+          }
+        },
+        {
+          "value": "fr",
+          "label": {
+            "en": "French",
+            "fr": "Français",
+            "de": "Französisch",
+            "es": "Francés"
+          }
+        },
+        {
+          "value": "de",
+          "label": {
+            "en": "German",
+            "fr": "Allemand",
+            "de": "Deutsch",
+            "es": "Alemán"
+          }
+        },
+        {
+          "value": "es",
+          "label": {
+            "en": "Spanish",
+            "fr": "Espagnol",
+            "de": "Spanisch",
+            "es": "Español"
+          }
+        }
+      ]
     },
     {
-      "key": "identify",
-      "label": { "en": "Identify a device", "fr": "Identifier un appareil" },
-      "fields": [
+      "key": "about",
+      "type": "section",
+      "label": {
+        "en": "Sources and limits",
+        "fr": "Sources et limites",
+        "de": "Quellen und Grenzen",
+        "es": "Fuentes y límites"
+      },
+      "description": {
+        "en": "Public bulletins of NOAA's tsunami warning centers (tsunami.gov), read without an account. Not an official alert service: it does not replace sirens, WEA or NOAA Weather Radio. Not affiliated with NOAA.",
+        "fr": "Bulletins publics des centres d'alerte aux tsunamis de la NOAA (tsunami.gov), lus sans compte. Pas un service d'alerte officiel : ne remplace ni les sirènes, ni les alertes sur mobile, ni la radio NOAA. Non affiliée à la NOAA.",
+        "de": "Öffentliche Meldungen der Tsunami-Warnzentren der NOAA (tsunami.gov), ohne Konto gelesen. Kein offizieller Warndienst: ersetzt weder Sirenen noch Handywarnungen noch NOAA-Radio. Nicht mit der NOAA verbunden.",
+        "es": "Boletines públicos de los centros de alerta de tsunamis de la NOAA (tsunami.gov), leídos sin cuenta. No es un servicio de alerta oficial: no sustituye sirenas, alertas móviles ni la radio NOAA. Sin afiliación con la NOAA."
+      },
+      "links": [
         {
-          "key": "device",
-          "type": "select",
-          "source": "devices",
-          "label": { "en": "Device", "fr": "Appareil" },
-          "required": true
+          "url": "https://www.tsunami.gov",
+          "label": {
+            "en": "tsunami.gov",
+            "fr": "tsunami.gov",
+            "de": "tsunami.gov",
+            "es": "tsunami.gov"
+          }
         }
       ]
     }
   ],
+  "actions": [
+    {
+      "key": "check_now",
+      "label": {
+        "en": "Show the message in effect",
+        "fr": "Afficher le message en cours",
+        "de": "Aktuelle Meldung anzeigen",
+        "es": "Mostrar el mensaje en vigor"
+      },
+      "timeout_seconds": 60
+    }
+  ],
   "scene_triggers": [
     {
-      "key": "motion_detected",
-      "label": { "en": "Motion detected", "fr": "Mouvement détecté" },
+      "key": "tsunami_message",
+      "label": {
+        "en": "Tsunami: new NOAA message",
+        "fr": "Tsunami : nouveau message de la NOAA",
+        "de": "Tsunami: neue Meldung der NOAA",
+        "es": "Tsunami: nuevo mensaje de la NOAA"
+      },
       "description": {
-        "en": "A demo motion sensor saw a person or an animal move.",
-        "fr": "Un détecteur de démonstration a vu bouger une personne ou un animal."
+        "en": "A tsunami warning center issues a bulletin for the followed region: statement, advisory, watch, warning, threat or end.",
+        "fr": "Un centre d'alerte publie un bulletin pour la région suivie : information, avis, veille, alerte, menace ou fin.",
+        "de": "Ein Warnzentrum gibt eine Meldung für die verfolgte Region heraus: Information, Hinweis, Vorwarnung, Warnung, Gefahr oder Ende.",
+        "es": "Un centro de alerta emite un boletín para la región seguida: información, advertencia, vigilancia, aviso, amenaza o fin."
       },
       "fields": [
         {
-          "key": "device",
-          "type": "select",
-          "source": "devices",
-          "label": { "en": "Sensor", "fr": "Détecteur" }
+          "key": "kind",
+          "type": "multi_select",
+          "label": {
+            "en": "Kinds of message",
+            "fr": "Types de message",
+            "de": "Arten von Meldungen",
+            "es": "Tipos de mensaje"
+          },
+          "options": [
+            {
+              "value": "information",
+              "label": {
+                "en": "Information statement",
+                "fr": "Message d'information",
+                "de": "Informationsmeldung",
+                "es": "Mensaje informativo"
+              }
+            },
+            {
+              "value": "advisory",
+              "label": {
+                "en": "Advisory",
+                "fr": "Avis (Advisory)",
+                "de": "Hinweis (Advisory)",
+                "es": "Advertencia (Advisory)"
+              }
+            },
+            {
+              "value": "watch",
+              "label": {
+                "en": "Watch",
+                "fr": "Veille (Watch)",
+                "de": "Vorwarnung (Watch)",
+                "es": "Vigilancia (Watch)"
+              }
+            },
+            {
+              "value": "warning",
+              "label": {
+                "en": "Warning",
+                "fr": "Alerte (Warning)",
+                "de": "Warnung (Warning)",
+                "es": "Aviso (Warning)"
+              }
+            },
+            {
+              "value": "threat",
+              "label": {
+                "en": "Threat message (international)",
+                "fr": "Message de menace (international)",
+                "de": "Gefahrenmeldung (international)",
+                "es": "Mensaje de amenaza (internacional)"
+              }
+            },
+            {
+              "value": "cancellation",
+              "label": {
+                "en": "Cancellation or final message",
+                "fr": "Annulation ou message final",
+                "de": "Aufhebung oder letzte Meldung",
+                "es": "Cancelación o mensaje final"
+              }
+            }
+          ]
         },
         {
-          "key": "target",
+          "key": "region",
           "type": "multi_select",
-          "label": { "en": "What moved", "fr": "Ce qui a bougé" },
+          "label": {
+            "en": "Regions",
+            "fr": "Régions",
+            "de": "Regionen",
+            "es": "Regiones"
+          },
           "options": [
-            { "value": "person", "label": { "en": "Person", "fr": "Personne" } },
-            { "value": "animal", "label": { "en": "Animal", "fr": "Animal" } }
+            {
+              "value": "alaska_west_coast",
+              "label": {
+                "en": "Alaska, BC and US West Coast (NTWC)",
+                "fr": "Alaska, C.-B. et côte ouest des É.-U. (NTWC)",
+                "de": "Alaska, BC und US-Westküste (NTWC)",
+                "es": "Alaska, C. B. y costa oeste de EE. UU. (NTWC)"
+              }
+            },
+            {
+              "value": "east_gulf_coast",
+              "label": {
+                "en": "US East and Gulf coasts, eastern Canada (NTWC)",
+                "fr": "Côtes est et du golfe des É.-U., est du Canada (NTWC)",
+                "de": "US-Ost- und Golfküste, Ostkanada (NTWC)",
+                "es": "Costas este y del golfo de EE. UU., este de Canadá (NTWC)"
+              }
+            },
+            {
+              "value": "hawaii",
+              "label": {
+                "en": "Hawaii (PTWC)",
+                "fr": "Hawaï (PTWC)",
+                "de": "Hawaii (PTWC)",
+                "es": "Hawái (PTWC)"
+              }
+            },
+            {
+              "value": "guam_cnmi",
+              "label": {
+                "en": "Guam and Northern Mariana Islands (PTWC)",
+                "fr": "Guam et îles Mariannes du Nord (PTWC)",
+                "de": "Guam und Nördliche Marianen (PTWC)",
+                "es": "Guam e Islas Marianas del Norte (PTWC)"
+              }
+            },
+            {
+              "value": "american_samoa",
+              "label": {
+                "en": "American Samoa (PTWC)",
+                "fr": "Samoa américaines (PTWC)",
+                "de": "Amerikanisch-Samoa (PTWC)",
+                "es": "Samoa Americana (PTWC)"
+              }
+            },
+            {
+              "value": "puerto_rico_vi",
+              "label": {
+                "en": "Puerto Rico and Virgin Islands (PTWC)",
+                "fr": "Porto Rico et îles Vierges (PTWC)",
+                "de": "Puerto Rico und Jungferninseln (PTWC)",
+                "es": "Puerto Rico e Islas Vírgenes (PTWC)"
+              }
+            },
+            {
+              "value": "caribbean",
+              "label": {
+                "en": "Caribbean, international messages (PTWC)",
+                "fr": "Caraïbes, messages internationaux (PTWC)",
+                "de": "Karibik, internationale Meldungen (PTWC)",
+                "es": "Caribe, mensajes internacionales (PTWC)"
+              }
+            },
+            {
+              "value": "pacific",
+              "label": {
+                "en": "Pacific, international messages (PTWC)",
+                "fr": "Pacifique, messages internationaux (PTWC)",
+                "de": "Pazifik, internationale Meldungen (PTWC)",
+                "es": "Pacífico, mensajes internacionales (PTWC)"
+              }
+            }
           ]
         }
       ],
       "variables": [
         {
-          "key": "target",
+          "key": "kind_name",
           "type": "string",
-          "label": { "en": "What moved", "fr": "Ce qui a bougé" }
+          "label": {
+            "en": "Kind of message, in words",
+            "fr": "Type de message, en toutes lettres",
+            "de": "Art der Meldung, ausgeschrieben",
+            "es": "Tipo de mensaje, en palabras"
+          }
+        },
+        {
+          "key": "region_name",
+          "type": "string",
+          "label": {
+            "en": "Region, in words",
+            "fr": "Région, en toutes lettres",
+            "de": "Region, ausgeschrieben",
+            "es": "Región, en palabras"
+          }
+        },
+        {
+          "key": "level",
+          "type": "number",
+          "label": {
+            "en": "Level (0 none to 3 warning)",
+            "fr": "Niveau (0 aucun à 3 alerte)",
+            "de": "Stufe (0 keine bis 3 Warnung)",
+            "es": "Nivel (0 ninguno a 3 aviso)"
+          }
+        },
+        {
+          "key": "magnitude",
+          "type": "number",
+          "label": {
+            "en": "Earthquake magnitude",
+            "fr": "Magnitude du séisme",
+            "de": "Magnitude des Erdbebens",
+            "es": "Magnitud del sismo"
+          }
+        },
+        {
+          "key": "location",
+          "type": "string",
+          "label": {
+            "en": "Earthquake location",
+            "fr": "Lieu du séisme",
+            "de": "Ort des Erdbebens",
+            "es": "Lugar del sismo"
+          }
+        },
+        {
+          "key": "arrival",
+          "type": "string",
+          "label": {
+            "en": "Estimated arrival, if given",
+            "fr": "Arrivée estimée, si indiquée",
+            "de": "Geschätzte Ankunft, falls angegeben",
+            "es": "Llegada estimada, si se indica"
+          }
+        },
+        {
+          "key": "summary",
+          "type": "string",
+          "label": {
+            "en": "Message, in one sentence",
+            "fr": "Message, en une phrase",
+            "de": "Meldung, in einem Satz",
+            "es": "Mensaje, en una frase"
+          }
+        },
+        {
+          "key": "url",
+          "type": "string",
+          "label": {
+            "en": "Link to the bulletin",
+            "fr": "Lien vers le bulletin",
+            "de": "Link zur Meldung",
+            "es": "Enlace al boletín"
+          }
         }
       ]
     }
   ],
   "scene_actions": [
     {
-      "key": "identify_device",
-      "label": { "en": "Identify a device", "fr": "Identifier un appareil" },
-      "description": {
-        "en": "Make a device signal itself (the demo light blinks).",
-        "fr": "Fait se signaler un appareil (la lampe de démonstration clignote)."
+      "key": "read_alert",
+      "label": {
+        "en": "Tsunami: read the message in effect",
+        "fr": "Tsunami : lire le message en cours",
+        "de": "Tsunami: aktuelle Meldung lesen",
+        "es": "Tsunami: leer el mensaje en vigor"
       },
-      "timeout_seconds": 15,
-      "fields": [
-        {
-          "key": "device",
-          "type": "select",
-          "source": "devices",
-          "label": { "en": "Device", "fr": "Appareil" },
-          "required": true
-        }
-      ],
+      "description": {
+        "en": "The tsunami message in effect for the followed region as one sentence, to send by message or read aloud.",
+        "fr": "Le message tsunami en cours pour la région suivie en une phrase, à envoyer par message ou à lire à voix haute.",
+        "de": "Die aktuelle Tsunami-Meldung der verfolgten Region als ein Satz, zum Senden per Nachricht oder zum Vorlesen.",
+        "es": "El mensaje de tsunami en vigor para la región seguida en una frase, para enviar por mensaje o leer en voz alta."
+      },
+      "timeout_seconds": 60,
       "outputs": [
         {
-          "key": "signalled",
-          "type": "boolean",
-          "label": { "en": "Device signalled", "fr": "Appareil signalé" }
+          "key": "text",
+          "type": "string",
+          "label": {
+            "en": "Message, in one sentence",
+            "fr": "Message, en une phrase",
+            "de": "Meldung, in einem Satz",
+            "es": "Mensaje, en una frase"
+          }
+        },
+        {
+          "key": "level",
+          "type": "number",
+          "label": {
+            "en": "Level (0 none to 3 warning)",
+            "fr": "Niveau (0 aucun à 3 alerte)",
+            "de": "Stufe (0 keine bis 3 Warnung)",
+            "es": "Nivel (0 ninguno a 3 aviso)"
+          }
+        },
+        {
+          "key": "kind",
+          "type": "string",
+          "label": {
+            "en": "Kind (none, warning…)",
+            "fr": "Type (none, warning…)",
+            "de": "Art (none, warning…)",
+            "es": "Tipo (none, warning…)"
+          }
         }
       ]
     }
   ],
   "widgets": [
     {
-      "key": "demo_status",
-      "label": { "en": "Demo status", "fr": "État de la démo" },
-      "description": {
-        "en": "Live temperature and plug power, plug connection and observed location.",
-        "fr": "Température et puissance en direct, connexion de la prise, position observée."
+      "key": "tsunami",
+      "label": {
+        "en": "Tsunami (NOAA)",
+        "fr": "Tsunami (NOAA)",
+        "de": "Tsunami (NOAA)",
+        "es": "Tsunami (NOAA)"
       },
-      "icon": "activity",
-      "action_timeout_seconds": 15
+      "description": {
+        "en": "The tsunami message in effect for your region, its earthquake and arrival time.",
+        "fr": "Le message tsunami en cours pour votre région, son séisme et l'heure d'arrivée.",
+        "de": "Die aktuelle Tsunami-Meldung deiner Region, ihr Erdbeben und die Ankunftszeit.",
+        "es": "El mensaje de tsunami en vigor para su región, su sismo y la hora de llegada."
+      },
+      "icon": "alert-triangle",
+      "settings": [
+        {
+          "key": "show_quake",
+          "type": "boolean",
+          "label": {
+            "en": "Show the earthquake",
+            "fr": "Afficher le séisme",
+            "de": "Erdbeben anzeigen",
+            "es": "Mostrar el sismo"
+          },
+          "required": false,
+          "default": true
+        },
+        {
+          "key": "show_link",
+          "type": "boolean",
+          "label": {
+            "en": "Show the link to the bulletin",
+            "fr": "Afficher le lien vers le bulletin",
+            "de": "Link zur Meldung anzeigen",
+            "es": "Mostrar el enlace al boletín"
+          },
+          "required": false,
+          "default": true
+        }
+      ]
     }
   ]
 }
